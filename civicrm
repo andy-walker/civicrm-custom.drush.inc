@@ -1,0 +1,191 @@
+#!/usr/bin/python
+# -*- coding: utf8 -*-
+"""
+Usage: civicrm install <name (or partial name) of site>
+       civicrm upgrade [optional name (or partial name) of site]
+
+Leave 2nd argument blank to run on all sites in pool.d
+"""
+
+# script to automate the process of typing a drush command to install
+# or upgrade a civicrm instance .. because apparently that's too much
+# work for some people :)
+
+# this uses drush custom-civicrm-upgrade and custom-civicrm-install, these are custom
+# versions which basically leave out the part which unpacks the tar file,
+# and maybe do some other stuff in future specific to circle
+
+# andyw@circle, 09/03/2015
+
+import os, sys, tempfile
+
+from glob import glob
+from time import sleep
+
+pool_d_path = "/etc/php5/fpm/pool.d/"
+
+# retrieve site directory from a parsed config file
+def get_site_dir(config):
+    
+    try:
+        site_dir = config['php_admin_value[upload_tmp_dir]'].split('/')
+    except KeyError:
+        return ''
+
+    site_dir.pop()
+    return site_dir.pop()
+
+# parse an nginx conf file into a dictionary
+def parse_conf_file(filename):
+    
+    f = open(filename,'r')
+    config = {}
+
+    while 1:
+
+        line = f.readline()
+        if not line:
+            break
+
+        keyValue = line.split('=')
+        if len(keyValue) is 0:
+            continue
+
+        key   = keyValue.pop(0).rstrip()
+        value = '='.join(keyValue).strip()
+
+        config[key] = value
+
+    return config
+
+
+# start here
+
+# ensure supplied arguments are sane
+if len(sys.argv) < 2:
+    print __doc__
+    sys.exit(1)
+
+operation = sys.argv[1]
+site      = ''
+tmp_file  = tempfile.gettempdir() + '/custom-civicrm-' + operation + '.log'
+
+if len(sys.argv) >= 3:
+    site = sys.argv[2]
+
+if operation not in ('install', 'upgrade'):
+    print "Unsupported operation: '%s'" % operation
+    print __doc__
+    sys.exit(1)
+
+if operation == 'install' and not site:
+    print "For install operations, please specifiy a site"
+    print __doc__
+    sys.exit(1)
+
+ 
+# retrieve all conf file names in pool.d
+conf_files  = glob(pool_d_path + "*.conf")
+site_confs  = []
+candidates  = []
+sites       = []
+
+# if a site was specified as 2nd arg
+if site:
+
+    # iterate over conf files and select candidates
+    for conf_file in conf_files:
+        conf = parse_conf_file(conf_file)
+        if 'php_admin_value[upload_tmp_dir]' in conf.keys():
+            if site in conf['php_admin_value[upload_tmp_dir]']:
+                candidates.append(conf)
+
+    # if we found more than one candidate, display candidates
+    if len(candidates) > 1:
+
+        counter = 0
+
+        print "\nPotential candidates:\n"
+        print "[0] Cancel"
+
+        for candidate in candidates:
+            
+            counter += 1
+            site_dir = get_site_dir(candidate)
+
+            print "[%d] %s" % (counter, site_dir)
+            
+
+        selected = raw_input("\nPlease select [0-5]: ")
+
+        try:
+            selected = int(selected)
+        except ValueError:
+            print "'%s' is not a valid selection" % selected
+            sys.exit(1)
+
+        if selected < 0 or selected > counter:
+            print "'%s' is not a valid selection" % selected
+            sys.exit(1)
+
+        if not selected:
+            print "Cancelled."
+            sys.exit(1)
+
+        sites.append(candidates[selected-1])
+
+    else:
+        sites.append(candidates[0])
+
+    site_dir = get_site_dir(sites[0])
+    docroot  = '/var/docroots/' + site_dir
+    owner    = sites[0]['listen.owner']
+
+    print "\nAbout to run: sudo -u %s drush -r %s --uri=%s custom-civicrm-%s -y" % (owner, docroot, site_dir, operation)
+
+
+# no site specified, run on all sites - can only do this for upgrades
+else:
+
+    # iterate over conf files and select candidates
+    for conf_file in conf_files:
+        conf = parse_conf_file(conf_file)
+        if 'listen.owner' in conf.keys() and 'php_admin_value[upload_tmp_dir]' in conf.keys():
+            if 'www-data' is not conf['listen.owner']:
+                sites.append(conf)
+
+    print "\nAbout to run:\nsudo -u <user> drush -r <docroot> --uri=<uri> custom-civicrm-upgrade -y\n"
+    print "For the following sites:"
+    
+    # sort alphabetically for sysadmin's convenience
+    sites = sorted(sites, key=lambda k: k['php_admin_value[upload_tmp_dir]'])
+
+    for site in sites:
+        site_dir = get_site_dir(site)
+        docroot  = '/var/docroots/' + site_dir
+        owner    = site['listen.owner']
+        print "- " + site_dir
+
+
+# is sysadmin sure it wants to do this?
+answer = raw_input("\nIs this correct [y/N]? ");
+
+if answer not in ('y', 'Y'):
+    print "Cancelled."
+    sys.exit(1)
+
+# sysadmin is sure - go ahead and run stuff    
+print "Writing detailed output to " + tmp_file + "\n"
+
+for site in sites:
+    site_dir = get_site_dir(site)
+    docroot  = '/var/docroots/' + site_dir
+    owner    = site['listen.owner']
+    sys.stdout.write("Upgrading: " + site_dir + " ... ")
+    sleep(0.2)
+    print "\033[32m✔\033[0m"
+    #print "(Not really) running: sudo -u %s drush -r %s --uri=%s custom-civicrm-%s -y" % (owner, docroot, site_dir, operation)
+
+print ''
+    
+
