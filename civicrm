@@ -7,9 +7,8 @@ Usage: civicrm install <name (or partial name) of site>
 Leave 2nd argument blank to run on all sites in pool.d
 """
 
-# script to automate the process of typing a drush command to install
-# or upgrade a civicrm instance .. because apparently that's too much
-# work for some people :)
+# script to automate the process of running a (set of) drush command(s) to install
+# or upgrade civicrm - determines the user drush should run as from nginx pool.d config
 
 # this uses drush custom-civicrm-upgrade and custom-civicrm-install, these are custom
 # versions which basically leave out the part which unpacks the tar file,
