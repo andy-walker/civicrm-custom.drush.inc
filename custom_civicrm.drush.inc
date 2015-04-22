@@ -51,8 +51,19 @@ function drush_custom_civicrm_install_validate() {
         $db_spec = _drush_sql_get_all_db_specs();
     }
 
+    $drush_civicrm_get_db_spec = function() {
+      if (version_compare(DRUSH_VERSION, 7, '>=')) {
+          $sql = drush_sql_get_class();
+          $db_spec = $sql->db_spec();
+      }
+      else {
+        $db_spec = _drush_sql_get_db_spec();
+      }
+      return $db_spec;
+    };
+
     if (!isset($db_spec)) {
-        $db_spec = drush_civicrm_get_db_spec();
+        $db_spec = $drush_civicrm_get_db_spec();
     }
 
     if (!drush_get_option('dbuser', FALSE)) {
@@ -71,10 +82,6 @@ function drush_custom_civicrm_install_validate() {
         drush_set_option('dbname', $db_spec['database']);
     }
     
-    $crmpath    = _civicrm_get_crmpath();
-    $drupalRoot = drush_get_context('DRUSH_DRUPAL_ROOT');
-    $modPath    = "$drupalRoot/$crmpath";
-
     if (drush_get_option('lang', FALSE) && !drush_get_option('langtarfile', FALSE)) {
         return drush_set_error('CIVICRM_INSTALL_LANGTARFILE_NOT_SPECIFIED', dt('CiviCRM language tarfile not specified.'));
     }
@@ -90,7 +97,7 @@ function drush_custom_civicrm_install() {
     $dbhost = drush_get_option('dbhost', FALSE);
     $dbname = drush_get_option('dbname', FALSE);
     
-    $crmpath    = _civicrm_get_crmpath();
+    $crmpath    = 'sites/all/modules';
     $drupalRoot = drush_get_context('DRUSH_DRUPAL_ROOT');
     $modPath    = "$drupalRoot/$crmpath";
     $lang       = drush_get_option('lang', '');
@@ -104,6 +111,13 @@ function drush_custom_civicrm_install() {
     if (!file_exists($civicrmInstallerHelper)) {
         return drush_set_error('CIVICRM_NOT_PRESENT', dt("CiviCRM installer helper file is missing."));
     }
+
+    $civicrmDrush = "$modPath/civicrm/drupal/drush/civicrm.drush.inc";
+    if (!file_exists($civicrmDrush)) {
+        return drush_set_error('CIVICRM_NOT_PRESENT', dt("CiviCRM Drush file is missing."));
+    }
+
+    require_once $civicrmDrush;
 
     if ($lang != '') {
         _civicrm_extract_tarfile($modPath, "langtarfile");
