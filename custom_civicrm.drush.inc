@@ -5,7 +5,19 @@ function custom_civicrm_drush_command() {
 
     $items['custom-civicrm-install'] = array(
         'callback'    => 'drush_custom_civicrm_install',
-        'description' => "Perform custom CiviCRM installation"
+        'description' => "Perform custom CiviCRM installation",
+        'options'     => array(
+            'dbuser'      => 'MySQL username for your Drupal/CiviCRM database.',
+            'dbpass'      => 'MySQL password for your Drupal/CiviCRM database.',
+            'dbhost'      => 'MySQL host for your Drupal/CiviCRM database. Defaults to localhost.',
+            'dbname'      => 'MySQL database name of your Drupal/CiviCRM database.',
+            'tarfile'     => 'Path to your CiviCRM tar.gz file.',
+            'destination' => 'Destination modules path to extract CiviCRM (eg : sites/all/modules ).',
+            'lang'        => 'Default language to use for installation.',
+            'langtarfile' => 'Path to your l10n tar.gz file.',
+            'site_url'    => 'Base Url for your drupal/CiviCRM website without http (e.g. mysite.com)',
+            'ssl'         => 'Using ssl for your drupal/CiviCRM website if set to on (e.g. --ssl=on)'
+        )
     );
 
     $items['custom-civicrm-upgrade'] = array(
