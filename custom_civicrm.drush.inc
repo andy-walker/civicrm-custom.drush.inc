@@ -164,12 +164,12 @@ function drush_custom_civicrm_upgrade() {
 
     $project_path = implode('/', $basepath) . '/';
     $drupal_root  = drush_get_context('DRUSH_DRUPAL_ROOT');
-    $backup_dir   = drush_get_option('backup-dir', $drupal_root . '/backup');
+    $backup_dir   = drush_get_option('backup-dir', $drupal_root . '/../backup');
     $backup_dir   = rtrim($backup_dir, '/');
     
     drush_print(dt("\nThe upgrade process involves - "));
 
-    drush_print(dt("1. Backing up database as => !path",
+    drush_print(dt("1. Backing up this database as => !path",
         array('!path' => "$backup_dir/modules/$date/$backup_file.sql")
     ));
 
@@ -177,20 +177,22 @@ function drush_custom_civicrm_upgrade() {
     
     if (!drush_confirm(dt('Do you really want to continue?')))
         return drush_user_abort();
-
-    if (!is_writable($backup_dir))
-        return drush_log("$backup_dir is not writable");
-
+    
+    if (!is_writable($backup_dir)) {
+        drush_log("$backup_dir is not writable", 'error');
+        return;
+    }
+    
     @drush_op('mkdir', $backup_dir, 0777);
     $backup_dir .= '/modules';
     @drush_op('mkdir', $backup_dir, 0777);
     $backup_dir .= "/$date";
     @drush_op('mkdir', $backup_dir, 0777);
     $backup_target = $backup_dir . '/' . $backup_file;
-
+    
     drush_set_option('result-file', $backup_target . '.sql');
     drush_civicrm_sqldump();
-
+    
     drush_log(dt('1. Database backed up.'), 'ok');
     drush_log(dt("2. "));
     
